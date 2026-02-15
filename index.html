@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonic Passport</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Leaflet JS & CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        body { font-family: 'JetBrains+Mono', monospace; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #000; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #404040; }
+        .leaflet-tooltip-custom {
+            background: #000 !important;
+            border: 1px solid #404040 !important;
+            color: #fff !important;
+            font-family: 'JetBrains+Mono', monospace !important;
+            font-size: 10px !important;
+            text-transform: uppercase !important;
+            border-radius: 0 !important;
+        }
+    </style>
+</head>
+<body class="bg-neutral-950 text-neutral-200">
+    <div id="root"></div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.FirebaseSDK = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, query };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const Icon = ({ name, className }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className}></i>;
+        };
+
+        const ALL_COUNTRIES = [
+            "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+            "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
+            "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo (DRC)", "Congo (Republic)", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic",
+            "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia",
+            "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary",
+            "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan",
+            "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
+            "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+            "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman",
+            "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar",
+            "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+            "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+            "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+        ];
+
+        const normalizeCountry = (name) => {
+            if (!name) return '';
+            const n = name.toLowerCase().trim();
+            if (n === 'usa' || n === 'united states of america') return 'United States';
+            if (n === 'uk' || n === 'great britain') return 'United Kingdom';
+            return name; 
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/95 p-4">
+                    <div className="bg-neutral-900 border border-neutral-700 w-full max-w-lg flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center p-6 border-b border-neutral-800">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">{title}</h3>
+                            <button onClick={onClose} className="text-neutral-500 hover:text-white"><Icon name="x" className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar">{children}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const CountryDetails = ({ country, entries, onEdit, onAddNew }) => (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div className="text-[10px] uppercase tracking-widest text-neutral-500">History for {country}</div>
+                </div>
+                <div className="space-y-px bg-neutral-800 border border-neutral-800">
+                    {entries.map(e => (
+                        <div key={e.id} className="bg-black p-4 flex gap-4 items-center group">
+                            <div className="w-10 h-10 border border-neutral-800 flex items-center justify-center font-bold text-sm text-white shrink-0">
+                                {e.score}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold text-xs uppercase text-white truncate">{e.album}</div>
+                                <div className="text-[10px] text-neutral-500 uppercase tracking-widest truncate">{e.band}</div>
+                            </div>
+                            <button onClick={() => onEdit(e)} className="p-2 text-neutral-600 hover:text-white transition-colors">
+                                <Icon name="edit-3" className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                <button 
+                    onClick={onAddNew} 
+                    className="w-full py-3 bg-neutral-900 border border-neutral-800 hover:bg-white hover:text-black text-neutral-400 font-bold uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2"
+                >
+                    <Icon name="plus" className="w-3 h-3" /> Log New Entry
+                </button>
+            </div>
+        );
+
+        const RatingForm = ({ initialCountry, onSave, existingEntry, onCancel }) => {
+            const [formData, setFormData] = useState({
+                country: initialCountry || '', band: '', album: '', genre: '',
+                releaseDate: '', listenDate: new Date().toISOString().split('T')[0], score: 5, link: '',
+            });
+
+            useEffect(() => {
+                if (existingEntry) setFormData(existingEntry);
+                else if (initialCountry) setFormData(prev => ({ ...prev, country: initialCountry }));
+            }, [initialCountry, existingEntry]);
+
+            const inputClass = "w-full px-4 py-3 bg-black border border-neutral-800 text-white focus:border-neutral-500 outline-none placeholder-neutral-700 text-xs uppercase tracking-widest transition-colors";
+            const labelClass = "block text-[10px] font-bold text-neutral-500 uppercase tracking-[0.2em] mb-2";
+
+            return (
+                <form onSubmit={(e) => { e.preventDefault(); onSave({ ...formData, id: existingEntry?.id || Date.now().toString() }); }} className="space-y-6">
+                    <div>
+                        <label className={labelClass}>Country</label>
+                        <input type="text" required value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})} className={inputClass} list="country-list" />
+                        <datalist id="country-list">{ALL_COUNTRIES.map(c => <option key={c} value={c} />)}</datalist>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className={labelClass}>Band</label><input type="text" required value={formData.band} onChange={e => setFormData({...formData, band: e.target.value})} className={inputClass} /></div>
+                        <div><label className={labelClass}>Album</label><input type="text" required value={formData.album} onChange={e => setFormData({...formData, album: e.target.value})} className={inputClass} /></div>
+                    </div>
+                    <div><label className={labelClass}>Genre</label><input type="text" required value={formData.genre} onChange={e => setFormData({...formData, genre: e.target.value})} className={inputClass} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className={labelClass}>Year</label><input type="text" value={formData.releaseDate} onChange={e => setFormData({...formData, releaseDate: e.target.value})} className={inputClass} /></div>
+                        <div><label className={labelClass}>Date</label><input type="date" required value={formData.listenDate} onChange={e => setFormData({...formData, listenDate: e.target.value})} className={inputClass} /></div>
+                    </div>
+                    <div>
+                        <label className={labelClass}>Score</label>
+                        <div className="flex flex-wrap gap-1">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                                <button key={n} type="button" onClick={() => setFormData({...formData, score: n})} className={`flex-1 min-w-[30px] h-10 text-[10px] border transition-all ${formData.score === n ? 'bg-white text-black border-white' : 'bg-black text-neutral-600 border-neutral-800 hover:border-neutral-600'}`}>{n}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div><label className={labelClass}>Link</label><input type="url" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} className={inputClass} /></div>
+                    <div className="pt-6 flex justify-end gap-6 border-t border-neutral-800">
+                        <button type="button" onClick={onCancel} className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Cancel</button>
+                        <button type="submit" className="bg-white text-black px-8 py-3 text-[10px] font-bold uppercase tracking-widest">Save Record</button>
+                    </div>
+                </form>
+            );
+        };
+
+        const LeafletMap = ({ ratedCountries, onCountryClick }) => {
+            const mapRef = useRef(null);
+            const geoRef = useRef(null);
+
+            useEffect(() => {
+                const L = window.L;
+                if (!L || typeof L.map !== 'function' || mapRef.current) return;
+                
+                const m = L.map('map-container', { center: [20, 0], zoom: 2, minZoom: 2, zoomControl: false, attributionControl: false });
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(m);
+                
+                fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson').then(r => r.json()).then(data => {
+                    geoRef.current = L.geoJson(data, {
+                        style: (f) => ({ fillColor: ratedCountries.some(c => normalizeCountry(c) === normalizeCountry(f.properties.name)) ? '#fff' : '#111', weight: 1, color: '#333', fillOpacity: 0.8 }),
+                        onEachFeature: (f, l) => {
+                            l.on({ 
+                                mouseover: (e) => { e.target.setStyle({ weight: 2, color: '#fff' }); e.target.bringToFront(); },
+                                mouseout: (e) => geoRef.current.resetStyle(e.target),
+                                click: () => onCountryClick(f.properties.name)
+                            });
+                            l.bindTooltip(f.properties.name, { className: 'leaflet-tooltip-custom' });
+                        }
+                    }).addTo(m);
+                });
+                mapRef.current = m;
+
+                return () => {
+                    if (mapRef.current) {
+                        mapRef.current.remove();
+                        mapRef.current = null;
+                    }
+                };
+            }, []);
+
+            useEffect(() => {
+                if (geoRef.current) {
+                    geoRef.current.setStyle((f) => ({ fillColor: ratedCountries.some(c => normalizeCountry(c) === normalizeCountry(f.properties.name)) ? '#fff' : '#111', weight: 1, color: '#333', fillOpacity: 0.8 }));
+                }
+            }, [ratedCountries]);
+
+            return <div id="map-container" className="w-full h-full min-h-[500px] bg-black" />;
+        };
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [syncKey, setSyncKey] = useState(() => localStorage.getItem('sonic_sync_key') || 'default-passport');
+            const [entries, setEntries] = useState([]);
+            const [view, setView] = useState('list');
+            const [search, setSearch] = useState('');
+            const [modal, setModal] = useState({ open: false, country: null, entry: null, viewMode: 'list' });
+            const [isConfiguring, setIsConfiguring] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
+
+            // Firebase Initialization
+            useEffect(() => {
+                const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.FirebaseSDK;
+                const firebaseConfig = {
+                    apiKey: "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k",
+                    authDomain: "sonic-passport.firebaseapp.com",
+                    projectId: "sonic-passport",
+                    storageBucket: "sonic-passport.firebasestorage.app",
+                    messagingSenderId: "191886599912",
+                    appId: "1:191886599912:web:cdbc7c21d36981915fcb5d",
+                    measurementId: "G-DKPGXKCWWY"
+                };
+
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                
+                const initAuth = async () => {
+                    try {
+                        if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                            await signInWithCustomToken(auth, window.__initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (err) {
+                        console.error("Auth initialization failed:", err);
+                    }
+                };
+                initAuth();
+                
+                const unsub = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    setIsLoading(false);
+                });
+                return () => unsub();
+            }, []);
+
+            // Data Sync
+            useEffect(() => {
+                if (!user) return;
+                const { getFirestore, collection, onSnapshot } = window.FirebaseSDK;
+                const db = getFirestore();
+                const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'sonic-passport';
+                
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', syncKey);
+                
+                const unsub = onSnapshot(colRef, (snap) => {
+                    const data = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    setEntries(data);
+                }, (err) => {
+                    console.error("Firestore Permission Error:", err);
+                });
+
+                localStorage.setItem('sonic_sync_key', syncKey);
+                return () => unsub();
+            }, [user, syncKey]);
+
+            const uniqueCountries = useMemo(() => new Set(entries.map(e => normalizeCountry(e.country))), [entries]);
+
+            // Memoized list of entries for the currently selected modal country
+            const countryEntries = useMemo(() => {
+                if (!modal.country) return [];
+                return entries.filter(e => normalizeCountry(e.country) === normalizeCountry(modal.country));
+            }, [entries, modal.country]);
+
+            const handleSave = async (entry) => {
+                if (!user) return;
+                const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                const db = getFirestore();
+                const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'sonic-passport';
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', syncKey, entry.id);
+                try {
+                    await setDoc(docRef, entry);
+                    setModal({ open: false, country: null, entry: null, viewMode: 'list' });
+                } catch (err) {
+                    console.error("Save failed:", err);
+                }
+            };
+
+            const handleDelete = async (id) => {
+                if (!user || !confirm("Delete permanently?")) return;
+                const { getFirestore, doc, deleteDoc } = window.FirebaseSDK;
+                const db = getFirestore();
+                const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'sonic-passport';
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', syncKey, id));
+                } catch (err) {
+                    console.error("Delete failed:", err);
+                }
+            };
+
+            const handleModalCancel = () => {
+                // If we were adding/editing but have existing entries, go back to list
+                if (modal.viewMode === 'form' && countryEntries.length > 0) {
+                    setModal(prev => ({ ...prev, entry: null, viewMode: 'list' }));
+                } else {
+                    setModal({ open: false, country: null, entry: null, viewMode: 'list' });
+                }
+            };
+
+            if (isLoading) {
+                return <div className="min-h-screen bg-black flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-500">Initializing Passport...</div>;
+            }
+
+            const showList = modal.viewMode === 'list' && countryEntries.length > 0 && !modal.entry;
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <header className="bg-black border-b border-neutral-900 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white p-1"><Icon name="globe" className="w-5 h-5 text-black" /></div>
+                            <h1 className="text-sm font-bold uppercase tracking-[0.3em] text-white">Sonic Passport</h1>
+                        </div>
+                        <div className="flex border border-neutral-800 bg-neutral-950">
+                            {['list', 'map', 'unexplored'].map(v => (
+                                <button key={v} onClick={() => setView(v)} className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${view === v ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{v}</button>
+                            ))}
+                        </div>
+                    </header>
+
+                    <div className="bg-black border-b border-neutral-900 px-6 py-3 flex flex-wrap justify-between items-center text-[9px] uppercase tracking-widest text-neutral-500 gap-4">
+                        <div className="flex gap-6">
+                            <div><span className="text-white font-bold">{uniqueCountries.size}</span> Countries</div>
+                            <div className="hidden sm:block"><span className="text-white font-bold">{entries.length}</span> Records</div>
+                            <button onClick={() => setIsConfiguring(!isConfiguring)} className="flex items-center gap-2 hover:text-white">
+                                <Icon name="settings" className="w-3 h-3" /> Sync: <span className="text-white">{syncKey}</span>
+                            </button>
+                        </div>
+                        <button onClick={() => setModal({ open: true, country: null, entry: null, viewMode: 'form' })} className="bg-white text-black px-4 py-2 font-bold flex items-center gap-2">
+                           <Icon name="plus" className="w-3 h-3" /> Log New
+                        </button>
+                    </div>
+
+                    {isConfiguring && (
+                        <div className="bg-neutral-900 border-b border-neutral-800 p-6">
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-2">Multi-Device Sync Key</label>
+                            <div className="flex gap-2 max-w-sm">
+                                <input value={syncKey} onChange={e => setSyncKey(e.target.value.toLowerCase().replace(/\s+/g, '-'))} className="bg-black border border-neutral-700 p-3 text-xs w-full outline-none focus:border-white" placeholder="Enter key..." />
+                            </div>
+                            <p className="mt-2 text-[9px] text-neutral-500">Enter this same key on your phone or computer to sync your passport data.</p>
+                        </div>
+                    )}
+
+                    <main className="flex-1 relative overflow-hidden flex flex-col">
+                        {view === 'map' ? (
+                            <LeafletMap ratedCountries={Array.from(uniqueCountries)} onCountryClick={c => setModal({ open: true, country: c, entry: null, viewMode: 'list' })} />
+                        ) : (
+                            <div className="max-w-4xl mx-auto w-full p-6 space-y-8 h-full overflow-y-auto custom-scrollbar">
+                                <div className="relative">
+                                    <Icon name="search" className="absolute left-4 top-4 w-4 h-4 text-neutral-700" />
+                                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter database..." className="w-full bg-black border border-neutral-900 p-4 pl-12 text-[10px] uppercase tracking-[0.2em] outline-none focus:border-neutral-600 transition-colors" />
+                                </div>
+
+                                {view === 'list' ? (
+                                    <div className="space-y-px bg-neutral-900 border border-neutral-900">
+                                        {entries.filter(e => [e.country, e.band, e.album, e.genre].some(f => f?.toLowerCase().includes(search.toLowerCase()))).sort((a, b) => new Date(b.listenDate) - new Date(a.listenDate)).map(e => (
+                                            <div key={e.id} className="bg-black p-6 flex flex-col md:flex-row gap-6 items-start md:items-center group">
+                                                <div className="w-12 h-12 border border-neutral-900 flex items-center justify-center font-bold text-lg shrink-0">{e.score}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-bold uppercase text-base text-white tracking-tight truncate">{e.album} / <span className="text-neutral-500">{e.band}</span></h3>
+                                                    <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-[9px] text-neutral-500 uppercase tracking-widest">
+                                                        <span className="text-neutral-300">{e.country}</span>
+                                                        <span className="border border-neutral-800 px-2">{e.genre}</span>
+                                                        <span>{e.listenDate}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-4 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                    {e.link && <a href={e.link} target="_blank" className="text-neutral-500 hover:text-white"><Icon name="external-link" className="w-4 h-4" /></a>}
+                                                    <button onClick={() => setModal({ open: true, entry: e, viewMode: 'form' })} className="text-neutral-500 hover:text-white"><Icon name="edit-3" className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(e.id)} className="text-neutral-800 hover:text-red-500"><Icon name="trash-2" className="w-4 h-4" /></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-neutral-900 border border-neutral-900">
+                                        {ALL_COUNTRIES.filter(c => !uniqueCountries.has(normalizeCountry(c)) && c.toLowerCase().includes(search.toLowerCase())).map(c => (
+                                            <div key={c} onClick={() => setModal({ open: true, country: c, viewMode: 'list' })} className="bg-black p-4 text-[9px] font-bold uppercase tracking-widest text-neutral-600 hover:text-white hover:bg-neutral-950 cursor-pointer transition-colors flex justify-between items-center group">
+                                                <span>{c}</span>
+                                                <Icon name="plus" className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </main>
+
+                    <Modal isOpen={modal.open} onClose={() => setModal({ open: false, country: null, entry: null, viewMode: 'list' })} title={
+                        showList 
+                            ? `History: ${modal.country}` 
+                            : (modal.entry ? "Edit Record" : `Log Record: ${modal.country || 'Territory'}`)
+                    }>
+                        {showList ? (
+                            <CountryDetails 
+                                country={modal.country} 
+                                entries={countryEntries} 
+                                onEdit={(e) => setModal({ ...modal, entry: e, viewMode: 'form' })}
+                                onAddNew={() => setModal({ ...modal, entry: null, viewMode: 'form' })}
+                            />
+                        ) : (
+                            <RatingForm 
+                                initialCountry={modal.country} 
+                                existingEntry={modal.entry} 
+                                onSave={handleSave} 
+                                onCancel={handleModalCancel} 
+                            />
+                        )}
+                    </Modal>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
