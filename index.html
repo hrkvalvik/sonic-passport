@@ -84,8 +84,27 @@
         </script>
 
         <script type="text/babel">
-            // !!! IMPORTANT: CHANGE THIS TO YOUR GOOGLE EMAIL ADDRESS !!!
+            // ==========================================
+            // CONFIGURATION SECTION - EDIT THIS!
+            // ==========================================
+
+            // 1. Enter your Google Email Address here to restrict access:
             const ALLOWED_EMAIL = "hrkvalvik@gmail.com";
+
+            // 2. Paste your Firebase Configuration keys here:
+            const firebaseConfig = {
+                apiKey: "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k",
+                authDomain: "sonic-passport.firebaseapp.com",
+                projectId: "sonic-passport",
+                storageBucket: "sonic-passport.firebasestorage.app",
+                messagingSenderId: "191886599912",
+                appId: "1:191886599912:web:cdbc7c21d36981915fcb5d",
+                measurementId: "G-DKPGXKCWWY",
+            };
+
+            // ==========================================
+            // END CONFIGURATION
+            // ==========================================
 
             const { useState, useEffect, useMemo, useRef } = React;
 
@@ -769,25 +788,26 @@
 
                     try {
                         let firebaseConfig;
+
+                        // CHECK 1: Try to use the MANUAL_FIREBASE_CONFIG from the top of the file
                         if (
+                            typeof MANUAL_FIREBASE_CONFIG !== "undefined" &&
+                            MANUAL_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY"
+                        ) {
+                            firebaseConfig = MANUAL_FIREBASE_CONFIG;
+                        }
+                        // CHECK 2: Fallback for Canvas Preview (Internal Use Only)
+                        else if (
                             typeof window.__firebase_config !== "undefined" &&
                             window.__firebase_config
                         ) {
                             firebaseConfig = JSON.parse(
                                 window.__firebase_config,
                             );
-                        } else {
-                            // PLACEHOLDER: If hosting on GitHub, replace with your config
-                            const firebaseConfig = {
-                                apiKey: "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k",
-                                authDomain: "sonic-passport.firebaseapp.com",
-                                projectId: "sonic-passport",
-                                storageBucket:
-                                    "sonic-passport.firebasestorage.app",
-                                messagingSenderId: "191886599912",
-                                appId: "1:191886599912:web:cdbc7c21d36981915fcb5d",
-                                measurementId: "G-DKPGXKCWWY",
-                            };
+                        }
+                        // CHECK 3: If neither exist or are valid, throw error
+                        else {
+                            throw new Error("PLACEHOLDER_DETECTED");
                         }
 
                         const app = initializeApp(firebaseConfig);
@@ -800,9 +820,17 @@
                         return () => unsub();
                     } catch (e) {
                         console.error(e);
-                        setConfigError(
-                            "Firebase Configuration Missing. Please edit the index.html file.",
-                        );
+                        if (e.message === "PLACEHOLDER_DETECTED") {
+                            setConfigError(
+                                "CONFIGURATION REQUIRED: Please open index.html and replace 'YOUR_API_KEY' with your actual Firebase details.",
+                            );
+                        } else {
+                            setConfigError(
+                                "Firebase Configuration Error: " +
+                                    e.message +
+                                    ". Please check your index.html file.",
+                            );
+                        }
                         setIsCheckingAuth(false);
                     }
                 }, []);
