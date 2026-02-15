@@ -925,6 +925,7 @@
                 const [isConfiguring, setIsConfiguring] = useState(false);
                 const [isCheckingAuth, setIsCheckingAuth] = useState(true);
                 const [configError, setConfigError] = useState(null);
+                const [permissionError, setPermissionError] = useState(false);
 
                 // Firebase Initialization
                 useEffect(() => {
@@ -1021,9 +1022,13 @@
                                 id: doc.id,
                             }));
                             setEntries(data);
+                            setPermissionError(false);
                         },
                         (err) => {
                             console.error("Firestore Permission Error:", err);
+                            if (err.code === "permission-denied") {
+                                setPermissionError(true);
+                            }
                         },
                     );
 
@@ -1075,6 +1080,9 @@
                         });
                     } catch (err) {
                         console.error("Save failed:", err);
+                        if (err.code === "permission-denied") {
+                            setPermissionError(true);
+                        }
                     }
                 };
 
@@ -1100,6 +1108,9 @@
                         );
                     } catch (err) {
                         console.error("Delete failed:", err);
+                        if (err.code === "permission-denied") {
+                            setPermissionError(true);
+                        }
                     }
                 };
 
@@ -1123,6 +1134,47 @@
                                 className="w-8 h-8 mb-4 text-red-500"
                             />
                             {configError}
+                        </div>
+                    );
+
+                if (permissionError)
+                    return (
+                        <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center text-neutral-500 text-xs">
+                            <Icon
+                                name="lock"
+                                className="w-12 h-12 mb-4 text-red-500"
+                            />
+                            <h2 className="text-white font-bold uppercase tracking-widest text-lg mb-2">
+                                Database Access Blocked
+                            </h2>
+                            <p className="max-w-md mb-6 leading-relaxed">
+                                Your app is connected, but the database rejected
+                                your request. This means your{" "}
+                                <strong>Firebase Security Rules</strong> are not
+                                set up for your email.
+                            </p>
+                            <div className="bg-neutral-900 border border-neutral-800 p-4 text-left font-mono text-[10px] text-neutral-400 mb-6 overflow-x-auto w-full max-w-lg">
+                                <p className="mb-2 text-white">
+                                    Go to Firebase Console &gt; Firestore &gt;
+                                    Rules and paste this:
+                                </p>
+                                <pre className="whitespace-pre-wrap select-all">
+                                    {`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/public/data/{syncKey}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.email == "${user?.email || "YOUR_EMAIL"}";
+    }
+  }
+}`}
+                                </pre>
+                            </div>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="bg-white text-black px-6 py-2 font-bold uppercase tracking-widest"
+                            >
+                                Retry
+                            </button>
                         </div>
                     );
 
