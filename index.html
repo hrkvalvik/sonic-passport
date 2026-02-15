@@ -18,6 +18,10 @@
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+        <!-- LOAD EXTERNAL CONFIGURATION -->
+        <script src="config.js"></script>
+
         <style>
             @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap");
             body {
@@ -84,27 +88,13 @@
         </script>
 
         <script type="text/babel">
-            // ==========================================
-            // CONFIGURATION SECTION - EDIT THIS!
-            // ==========================================
-
-            // 1. Enter your Google Email Address here to restrict access:
-            const ALLOWED_EMAIL = "hrkvalvik@gmail.com";
-
-            // 2. Paste your Firebase Configuration keys here:
-            const MANUAL_FIREBASE_CONFIG = {
-                apiKey: "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k",
-                authDomain: "sonic-passport.firebaseapp.com",
-                projectId: "sonic-passport",
-                storageBucket: "sonic-passport.firebasestorage.app",
-                messagingSenderId: "191886599912",
-                appId: "1:191886599912:web:cdbc7c21d36981915fcb5d",
-                measurementId: "G-DKPGXKCWWY",
+            // Grab config from window (loaded via config.js) or use fallbacks
+            const ALLOWED_EMAIL =
+                window.ALLOWED_EMAIL || "your-email@gmail.com";
+            const MANUAL_FIREBASE_CONFIG = window.MANUAL_FIREBASE_CONFIG || {
+                apiKey: "YOUR_API_KEY",
+                // Fallback placeholders...
             };
-
-            // ==========================================
-            // END CONFIGURATION
-            // ==========================================
 
             const { useState, useEffect, useMemo, useRef } = React;
 
@@ -373,6 +363,9 @@
                                         {e.band}
                                     </div>
                                 </div>
+                                <div className="text-[9px] text-neutral-600 hidden sm:block text-right">
+                                    {e.duration ? `${e.duration}m` : ""}
+                                </div>
                                 <button
                                     onClick={() => onEdit(e)}
                                     className="p-2 text-neutral-600 hover:text-white transition-colors"
@@ -406,6 +399,8 @@
                     listenDate: new Date().toISOString().split("T")[0],
                     score: 5,
                     link: "",
+                    songCount: "",
+                    duration: "",
                 });
 
                 useEffect(() => {
@@ -501,9 +496,47 @@
                                 className={inputClass}
                             />
                         </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className={labelClass}>Year</label>
+                                <label className={labelClass}>Songs</label>
+                                <input
+                                    type="number"
+                                    value={formData.songCount}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            songCount: e.target.value,
+                                        })
+                                    }
+                                    className={inputClass}
+                                    placeholder="Num"
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>
+                                    Duration (Mins)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={formData.duration}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            duration: e.target.value,
+                                        })
+                                    }
+                                    className={inputClass}
+                                    placeholder="Mins"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelClass}>
+                                    Release Year
+                                </label>
                                 <input
                                     type="text"
                                     value={formData.releaseDate}
@@ -517,7 +550,9 @@
                                 />
                             </div>
                             <div>
-                                <label className={labelClass}>Date</label>
+                                <label className={labelClass}>
+                                    Listen Date
+                                </label>
                                 <input
                                     type="date"
                                     required
@@ -582,6 +617,116 @@
                             </button>
                         </div>
                     </form>
+                );
+            };
+
+            const StatsView = ({ entries }) => {
+                const stats = useMemo(() => {
+                    const totalMinutes = entries.reduce(
+                        (acc, curr) => acc + (parseInt(curr.duration) || 0),
+                        0,
+                    );
+                    const countryScores = {};
+
+                    entries.forEach((e) => {
+                        const c = normalizeCountry(e.country);
+                        if (!countryScores[c])
+                            countryScores[c] = { sum: 0, count: 0 };
+                        countryScores[c].sum += parseInt(e.score);
+                        countryScores[c].count += 1;
+                    });
+
+                    const topCountries = Object.entries(countryScores)
+                        .map(([name, data]) => ({
+                            name,
+                            avg: (data.sum / data.count).toFixed(1),
+                        }))
+                        .sort((a, b) => b.avg - a.avg)
+                        .slice(0, 10);
+
+                    return { totalMinutes, topCountries };
+                }, [entries]);
+
+                return (
+                    <div className="max-w-4xl mx-auto w-full p-6 space-y-8 h-full overflow-y-auto custom-scrollbar">
+                        {/* Time Stats */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 text-center">
+                                <div className="text-3xl font-bold text-white mb-1">
+                                    {stats.totalMinutes}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                                    Minutes
+                                </div>
+                            </div>
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 text-center">
+                                <div className="text-3xl font-bold text-white mb-1">
+                                    {(stats.totalMinutes / 60).toFixed(1)}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                                    Hours
+                                </div>
+                            </div>
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 text-center">
+                                <div className="text-3xl font-bold text-white mb-1">
+                                    {(stats.totalMinutes / (60 * 24)).toFixed(
+                                        1,
+                                    )}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                                    Days
+                                </div>
+                            </div>
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 text-center">
+                                <div className="text-3xl font-bold text-white mb-1">
+                                    {(
+                                        stats.totalMinutes /
+                                        (60 * 24 * 7)
+                                    ).toFixed(1)}
+                                </div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                                    Weeks
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Top Countries Chart */}
+                        <div className="bg-neutral-900 border border-neutral-800 p-8">
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-white mb-8 border-b border-neutral-800 pb-4">
+                                Top Rated Territories
+                            </h2>
+                            <div className="space-y-4">
+                                {stats.topCountries.map((c, i) => (
+                                    <div
+                                        key={c.name}
+                                        className="flex items-center gap-4 group"
+                                    >
+                                        <div className="w-6 text-[10px] text-neutral-500 font-bold">
+                                            {i + 1}.
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between text-[10px] uppercase tracking-widest mb-1">
+                                                <span className="text-white font-bold">
+                                                    {c.name}
+                                                </span>
+                                                <span className="text-neutral-400">
+                                                    {c.avg} / 10
+                                                </span>
+                                            </div>
+                                            <div className="h-2 bg-black w-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-white transition-all duration-500"
+                                                    style={{
+                                                        width: `${(c.avg / 10) * 100}%`,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 );
             };
 
@@ -789,16 +934,18 @@
                     try {
                         let firebaseConfig;
 
-                        // CHECK 1: Try to use the MANUAL_FIREBASE_CONFIG from the top of the file
-                        // Use it if it's defined and NOT the placeholder
+                        // CHECK 1: Try to use MANUAL_FIREBASE_CONFIG (now loaded via config.js or inline fallback)
+                        // Ensure apiKey exists and isn't the placeholder
                         if (
                             typeof MANUAL_FIREBASE_CONFIG !== "undefined" &&
                             MANUAL_FIREBASE_CONFIG.apiKey &&
-                            MANUAL_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY"
+                            !MANUAL_FIREBASE_CONFIG.apiKey.includes(
+                                "YOUR_API_KEY",
+                            )
                         ) {
                             firebaseConfig = MANUAL_FIREBASE_CONFIG;
                         }
-                        // CHECK 2: Fallback for Canvas Preview (Internal Use Only)
+                        // Fallback for environment configuration
                         else if (
                             typeof window.__firebase_config !== "undefined" &&
                             window.__firebase_config
@@ -807,8 +954,8 @@
                                 window.__firebase_config,
                             );
                         }
-                        // CHECK 3: If neither exist or are valid, throw error
-                        else {
+
+                        if (!firebaseConfig || !firebaseConfig.apiKey) {
                             throw new Error("PLACEHOLDER_DETECTED");
                         }
 
@@ -824,18 +971,27 @@
                         console.error(e);
                         if (e.message === "PLACEHOLDER_DETECTED") {
                             setConfigError(
-                                "CONFIGURATION REQUIRED: Please open index.html and replace 'YOUR_API_KEY' with your actual Firebase details.",
+                                "CONFIGURATION REQUIRED: Please Ensure 'config.js' exists and contains valid credentials, or edit index.html directly.",
                             );
                         } else {
                             setConfigError(
-                                "Firebase Configuration Error: " +
-                                    e.message +
-                                    ". Please check your index.html file.",
+                                "Firebase Configuration Error: " + e.message,
                             );
                         }
                         setIsCheckingAuth(false);
                     }
                 }, []);
+
+                // Auto-set Sync Key based on email for seamless multi-device support
+                useEffect(() => {
+                    if (user && syncKey === "default-passport") {
+                        // Create a safe key from email (e.g. user@gmail.com -> user-gmail-com)
+                        const autoKey = user.email
+                            .replace(/[^a-z0-9]/g, "-")
+                            .toLowerCase();
+                        setSyncKey(autoKey);
+                    }
+                }, [user]);
 
                 // Data Sync
                 useEffect(() => {
@@ -995,16 +1151,18 @@
                                     Sonic Passport
                                 </h1>
                             </div>
-                            <div className="flex border border-neutral-800 bg-neutral-950">
-                                {["list", "map", "unexplored"].map((v) => (
-                                    <button
-                                        key={v}
-                                        onClick={() => setView(v)}
-                                        className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all ${view === v ? "bg-white text-black" : "text-neutral-500 hover:text-white"}`}
-                                    >
-                                        {v}
-                                    </button>
-                                ))}
+                            <div className="flex border border-neutral-800 bg-neutral-950 overflow-x-auto">
+                                {["list", "map", "unexplored", "stats"].map(
+                                    (v) => (
+                                        <button
+                                            key={v}
+                                            onClick={() => setView(v)}
+                                            className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${view === v ? "bg-white text-black" : "text-neutral-500 hover:text-white"}`}
+                                        >
+                                            {v}
+                                        </button>
+                                    ),
+                                )}
                             </div>
                         </header>
 
@@ -1036,7 +1194,7 @@
                                 </button>
                             </div>
                             <div className="flex items-center gap-4">
-                                <span className="hidden sm:inline text-neutral-600">
+                                <span className="text-neutral-600 truncate max-w-[80px] sm:max-w-none">
                                     {user.email}
                                 </span>
                                 <button
@@ -1105,6 +1263,8 @@
                                         }
                                     />
                                 </div>
+                            ) : view === "stats" ? (
+                                <StatsView entries={entries} />
                             ) : (
                                 <div className="max-w-4xl mx-auto w-full p-6 space-y-8 h-full overflow-y-auto custom-scrollbar">
                                     <div className="relative">
