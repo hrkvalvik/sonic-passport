@@ -89,10 +89,10 @@
             // ==========================================
 
             // 1. Enter your Google Email Address here to restrict access:
-            const ALLOWED_EMAIL = "hrkvalvik@gmail.com";
+            const ALLOWED_EMAIL = "hrkvlavik@gmail.com";
 
             // 2. Paste your Firebase Configuration keys here:
-            const firebaseConfig = {
+            const MANUAL_FIREBASE_CONFIG = {
                 apiKey: "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k",
                 authDomain: "sonic-passport.firebaseapp.com",
                 projectId: "sonic-passport",
@@ -790,10 +790,11 @@
                         let firebaseConfig;
 
                         // CHECK 1: Try to use the MANUAL_FIREBASE_CONFIG from the top of the file
+                        // Use it if it's defined and NOT the placeholder
                         if (
                             typeof MANUAL_FIREBASE_CONFIG !== "undefined" &&
-                            MANUAL_FIREBASE_CONFIG.apiKey !==
-                                "AIzaSyAf1_vklUc4E2baO1FaSh-g-LR2RFS2f3k"
+                            MANUAL_FIREBASE_CONFIG.apiKey &&
+                            MANUAL_FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY"
                         ) {
                             firebaseConfig = MANUAL_FIREBASE_CONFIG;
                         }
