@@ -94,8 +94,7 @@
 
         <script type="text/babel">
             // Grab config from window (loaded via config.js) or use fallbacks
-            const ALLOWED_EMAIL =
-                window.ALLOWED_EMAIL || "your-email@gmail.com";
+            const ALLOWED_EMAIL = window.ALLOWED_EMAIL || "hrkvalvik@gmail.com";
             const MANUAL_FIREBASE_CONFIG = window.MANUAL_FIREBASE_CONFIG || {
                 apiKey: "YOUR_API_KEY",
                 // Fallback placeholders...
@@ -1124,6 +1123,36 @@
                     signOut(getAuth());
                 };
 
+                const handleSelectRandomUnexploredCountry = () => {
+                    const exploredCountries = new Set(
+                        entries.map((e) => normalizeCountry(e.country)),
+                    );
+                    const unexploredCountries = ALL_COUNTRIES.filter(
+                        (c) => !exploredCountries.has(normalizeCountry(c)),
+                    );
+
+                    if (unexploredCountries.length === 0) {
+                        alert(
+                            "Congratulations! You've explored every country!",
+                        );
+                        return;
+                    }
+
+                    const randomCountry =
+                        unexploredCountries[
+                            Math.floor(
+                                Math.random() * unexploredCountries.length,
+                            )
+                        ];
+
+                    setModal({
+                        open: true,
+                        country: randomCountry,
+                        entry: null,
+                        viewMode: "form",
+                    });
+                };
+
                 if (isCheckingAuth)
                     return (
                         <div className="min-h-screen bg-black flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-500 animate-pulse">
@@ -1261,6 +1290,16 @@ service cloud.firestore {
                                 >
                                     Sign Out
                                 </button>
+                                <button
+                                    onClick={
+                                        handleSelectRandomUnexploredCountry
+                                    }
+                                    className="p-2 text-neutral-500 hover:text-white"
+                                    title="Select Random Unexplored Country"
+                                >
+                                    <Icon name="dice-5" className="w-4 h-4" />
+                                </button>
+
                                 <button
                                     onClick={() =>
                                         setModal({
