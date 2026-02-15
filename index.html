@@ -4,6 +4,11 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Sonic Passport</title>
+        <!-- Add the favicon link -->
+        <link rel="icon" href="img/favicon-16x16.png" type="image/x-icon" />
+        <!-- For better compatibility, modern browsers also use PNG -->
+        <link rel="icon" type="image/png" href="img/favicon-16x16.png" />
+
         <!-- Tailwind CSS -->
         <script src="https://cdn.tailwindcss.com"></script>
         <!-- Lucide Icons -->
@@ -1193,11 +1198,12 @@ service cloud.firestore {
                     <div className="min-h-screen flex flex-col">
                         <header className="bg-black border-b border-neutral-900 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-center gap-4">
-                                <div className="bg-white p-1">
-                                    <Icon
-                                        name="globe"
-                                        className="w-5 h-5 text-black"
-                                    />
+                                <div className=" p-1">
+                                    <img
+                                        src="img/sonic-passport.png"
+                                        width="28"
+                                        height="28"
+                                    ></img>
                                 </div>
                                 <h1 className="text-sm font-bold uppercase tracking-[0.3em] text-white">
                                     Sonic Passport
