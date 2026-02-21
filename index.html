@@ -405,6 +405,7 @@
                     link: "",
                     songCount: "",
                     duration: "",
+                    comment: "",
                 });
 
                 useEffect(() => {
@@ -605,6 +606,20 @@
                                 className={inputClass}
                             />
                         </div>
+                        <div>
+                            <label className={labelClass}>Comment</label>
+                            <textarea
+                                value={formData.comment || ""}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        comment: e.target.value,
+                                    })
+                                }
+                                className={inputClass}
+                                rows="3"
+                            ></textarea>
+                        </div>
                         <div className="pt-6 flex justify-end gap-6 border-t border-neutral-800">
                             <button
                                 type="button"
@@ -798,6 +813,7 @@
                                 },
                             }).addTo(m);
                         });
+
                     mapRef.current = m;
 
                     const resizeObserver = new ResizeObserver(() => {
@@ -1153,6 +1169,57 @@
                     });
                 };
 
+                const handleExportToCSV = () => {
+                    if (entries.length === 0) {
+                        alert("No entries to export.");
+                        return;
+                    }
+
+                    const headers = [
+                        "id",
+                        "country",
+                        "band",
+                        "album",
+                        "genre",
+                        "releaseDate",
+                        "listenDate",
+                        "score",
+                        "link",
+                        "songCount",
+                        "duration",
+                        "comment",
+                    ];
+
+                    const csvRows = [headers.join(",")];
+
+                    entries.forEach((entry) => {
+                        const values = headers.map((header) => {
+                            const value = entry[header] || "";
+                            const stringValue = String(value);
+                            // Escape quotes and wrap in quotes if it contains commas or newlines
+                            if (
+                                stringValue.includes('"') ||
+                                stringValue.includes(",")
+                            ) {
+                                return `"${stringValue.replace(/"/g, '""')}"`;
+                            }
+                            return stringValue;
+                        });
+                        csvRows.push(values.join(","));
+                    });
+
+                    const csvString = csvRows.join("\n");
+                    const blob = new Blob([csvString], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.setAttribute("hidden", "");
+                    a.setAttribute("href", url);
+                    a.setAttribute("download", "sonic-passport-export.csv");
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+
                 if (isCheckingAuth)
                     return (
                         <div className="min-h-screen bg-black flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-500 animate-pulse">
@@ -1291,6 +1358,13 @@ service cloud.firestore {
                                     Sign Out
                                 </button>
                                 <button
+                                    onClick={handleExportToCSV}
+                                    className="p-2 text-neutral-500 hover:text-white"
+                                    title="Export all data to CSV"
+                                >
+                                    <Icon name="download" className="w-4 h-4" />
+                                </button>
+                                <button
                                     onClick={
                                         handleSelectRandomUnexploredCountry
                                     }
@@ -1299,7 +1373,6 @@ service cloud.firestore {
                                 >
                                     <Icon name="dice-5" className="w-4 h-4" />
                                 </button>
-
                                 <button
                                     onClick={() =>
                                         setModal({
