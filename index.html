@@ -35,20 +35,81 @@
             .custom-scrollbar::-webkit-scrollbar {
                 width: 4px;
             }
+            :root {
+                --bg-base: #000;
+                --bg-panel: #0a0a0a;
+                --bg-card: #171717;
+                --border-base: #171717;
+                --border-hover: #262626;
+                --text-base: #fff;
+                --text-muted: #737373;
+                --text-faint: #525252;
+            }
+            [data-theme="light"] {
+                --bg-base: #f0f0f0;
+                --bg-panel: #ffffff;
+                --bg-card: #e5e5e5;
+                --border-base: #d4d4d4;
+                --border-hover: #a3a3a3;
+                --text-base: #171717;
+                --text-muted: #525252;
+                --text-faint: #a3a3a3;
+            }
+
             .custom-scrollbar::-webkit-scrollbar-track {
-                background: #000;
+                background: var(--bg-base);
             }
             .custom-scrollbar::-webkit-scrollbar-thumb {
-                background: #404040;
+                background: var(--border-hover);
             }
             .leaflet-tooltip-custom {
-                background: #000 !important;
-                border: 1px solid #404040 !important;
-                color: #fff !important;
+                background: var(--bg-panel) !important;
+                border: 1px solid var(--border-base) !important;
+                color: var(--text-base) !important;
                 font-family: "JetBrains+Mono", monospace !important;
                 font-size: 10px !important;
                 text-transform: uppercase !important;
                 border-radius: 0 !important;
+            }
+
+            /* Light Mode Tailwind Overrides */
+            [data-theme="light"] .bg-black {
+                background-color: var(--bg-base) !important;
+            }
+            [data-theme="light"] .bg-neutral-950 {
+                background-color: var(--bg-panel) !important;
+            }
+            [data-theme="light"] .bg-neutral-900 {
+                background-color: var(--bg-card) !important;
+            }
+            [data-theme="light"] .border-neutral-900 {
+                border-color: var(--border-base) !important;
+            }
+            [data-theme="light"] .border-neutral-800,
+            [data-theme="light"] .border-neutral-700 {
+                border-color: var(--border-hover) !important;
+            }
+            [data-theme="light"] .text-white {
+                color: var(--text-base) !important;
+            }
+            [data-theme="light"] .text-neutral-200,
+            [data-theme="light"] .text-neutral-300,
+            [data-theme="light"] .text-neutral-400 {
+                color: var(--text-faint) !important;
+            }
+            [data-theme="light"] .text-neutral-500 {
+                color: var(--text-muted) !important;
+            }
+            [data-theme="light"] .text-neutral-600 {
+                color: var(--text-faint) !important;
+            }
+            [data-theme="light"] .hover\:text-white:hover {
+                color: var(--text-base) !important;
+            }
+            [data-theme="light"] input.bg-black,
+            [data-theme="light"] textarea.bg-black {
+                background-color: var(--bg-panel) !important;
+                color: var(--text-base) !important;
             }
         </style>
     </head>
@@ -946,6 +1007,14 @@
                 const [isCheckingAuth, setIsCheckingAuth] = useState(true);
                 const [configError, setConfigError] = useState(null);
                 const [permissionError, setPermissionError] = useState(false);
+                const [theme, setTheme] = useState(
+                    () => localStorage.getItem("sonic_theme") || "dark",
+                );
+
+                useEffect(() => {
+                    document.documentElement.setAttribute("data-theme", theme);
+                    localStorage.setItem("sonic_theme", theme);
+                }, [theme]);
 
                 // Firebase Initialization
                 useEffect(() => {
@@ -1351,6 +1420,20 @@ service cloud.firestore {
                                 <span className="text-neutral-600 truncate max-w-[80px] sm:max-w-none">
                                     {user.email}
                                 </span>
+                                <button
+                                    onClick={() =>
+                                        setTheme((t) =>
+                                            t === "dark" ? "light" : "dark",
+                                        )
+                                    }
+                                    className="p-2 text-neutral-500 hover:text-white"
+                                    title="Toggle Theme"
+                                >
+                                    <Icon
+                                        name={theme === "dark" ? "sun" : "moon"}
+                                        className="w-4 h-4"
+                                    />
+                                </button>
                                 <button
                                     onClick={handleLogout}
                                     className="hover:text-white"
