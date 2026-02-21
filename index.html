@@ -53,7 +53,7 @@
                 --border-hover: #a3a3a3;
                 --text-base: #171717;
                 --text-muted: #525252;
-                --text-faint: #a3a3a3;
+                --text-faint: #585858;
             }
 
             .custom-scrollbar::-webkit-scrollbar-track {
@@ -1562,7 +1562,7 @@ service cloud.firestore {
                                                         key={e.id}
                                                         className="bg-black p-6 flex flex-col md:flex-row gap-6 items-start md:items-center group"
                                                     >
-                                                        <div className="w-12 h-12 border border-neutral-900 flex items-center justify-center font-bold text-lg shrink-0">
+                                                        <div className="w-12 h-12 border border-neutral-900 bg-neutral-950 text-white flex items-center justify-center font-bold text-lg shrink-0">
                                                             {e.score}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -1576,7 +1576,7 @@ service cloud.firestore {
                                                                 <span className="text-neutral-300">
                                                                     {e.country}
                                                                 </span>
-                                                                <span className="border border-neutral-800 px-2">
+                                                                <span className="border border-neutral-800 px-2 bg-neutral-950">
                                                                     {e.genre}
                                                                 </span>
                                                                 <span>
